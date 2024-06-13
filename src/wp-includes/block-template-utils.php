@@ -517,6 +517,7 @@ function _remove_theme_attribute_from_template_part_block( &$block ) {
  * @return string The template file contents.
  */
 function _get_block_template_file_content( $template_file_path ) {
+	static $template_data = null;
 	$theme = wp_get_theme();
 
 	$template_file_path = wp_normalize_path( $template_file_path );
@@ -537,39 +538,30 @@ function _get_block_template_file_content( $template_file_path ) {
 		return file_get_contents( $template_file_path );
 	}
 
-	/*
-	 * Bypass cache while developing a theme.
-	 * If there is an existing cache, it should be deleted.
-	 * This ensures that no stale cache values can be served when temporarily
-	 * enabling "theme" development mode and then disabling it again.
-	 */
-	if ( wp_is_development_mode( 'theme' ) ) {
-		$template_data = get_transient( 'wp_theme_template_contents_' . $theme->get_stylesheet() );
-		if ( false !== $template_data ) {
-			delete_transient( 'wp_theme_template_contents_' . $theme->get_stylesheet() );
-		}
-
-		return file_get_contents( $template_file_path );
+	// Check theme template cache first (if cached version matches the current theme version).
+	$cache_file = $theme_dir . "template-cache";
+	if ($template_data === null) {
+		$template_data = file_exists($cache_file) && filemtime($cache_file) <= time() + WEEK_IN_SECONDS ? unserialize(file_get_contents($cache_file)) : false;
 	}
 
-	// Check theme template cache first (if cached version matches the current theme version).
-	$template_data = get_transient( 'wp_theme_template_contents_' . $theme->get_stylesheet() );
 	if ( is_array( $template_data ) && $template_data['version'] === $theme->get( 'Version' ) ) {
-		if ( isset( $template_data['template_content'][ $relative_path ] ) ) {
+		if ( isset( $template_data['template_mtime'][ $relative_path ] ) &&  $template_data['template_mtime'][ $relative_path ]  == filemtime($template_file_path)) {
 			return $template_data['template_content'][ $relative_path ];
 		}
 	} else {
 		$template_data = array(
 			'version'          => $theme->get( 'Version' ),
 			'template_content' => array(),
+			'template_mtime' => array(),
 		);
 	}
 
 	// Retrieve fresh file contents if not found in cache.
 	$template_data['template_content'][ $relative_path ] = file_get_contents( $template_file_path );
+	$template_data['template_mtime'][ $relative_path ] = filemtime( $template_file_path );
 
 	// Update the cache.
-	set_transient( 'wp_theme_template_contents_' . $theme->get_stylesheet(), $template_data, WEEK_IN_SECONDS );
+	file_put_contents($cache_file, serialize($template_data));
 
 	return $template_data['template_content'][ $relative_path ];
 }
