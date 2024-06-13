@@ -815,4 +815,53 @@ class Tests_Block_Template_Utils extends WP_UnitTestCase {
 		// Ensure the relevant transient was deleted.
 		$this->assertFalse( get_transient( 'wp_theme_template_contents_block-theme' ) );
 	}
+
+	/**
+	 * Tests `_get_block_template_file_content()` is faster than simple file_get_contents
+	 *
+	 * @ticket 59600
+	 *
+	 * @covers ::_get_block_template_file_content
+	 */
+	public function test_get_block_template_file_content_is_faster() {
+		switch_theme( 'block-theme' );
+
+		$template_file1 = DIR_TESTDATA . '/themedir1/block-theme/parts/small-header.html';
+		$template_file2 = DIR_TESTDATA . '/themedir1/block-theme/templates/index.html';
+		$template_file3 = DIR_TESTDATA . '/themedir1/block-theme/templates/page-home.html';
+
+		$start = microtime(true);
+
+		$content_file1 = file_get_contents(DIR_TESTDATA . '/themedir1/block-theme/parts/small-header.html');
+		$content_file2 = file_get_contents(DIR_TESTDATA . '/themedir1/block-theme/templates/index.html');
+		$content_file3 = file_get_contents(DIR_TESTDATA . '/themedir1/block-theme/templates/page-home.html');
+
+		$fileReadTime = microtime(true) - $start;
+
+		set_transient(
+			'wp_theme_template_contents_block-theme',
+			array(
+				'version'          => '1.0.0',
+				'template_content' => array(
+					'parts/small-header.html' => $content_file1,
+					'templates/index.html' => $content_file2,
+					'templates/page-home.html' => $content_file3
+				),
+			),
+			WEEK_IN_SECONDS
+		);
+
+		// set_transient will cache the value, so we need to flush the cache to make sure we read from the DB as it will be in a web request
+		wp_cache_flush();
+
+		$start = microtime(true);
+
+		_get_block_template_file_content( $template_file1 );
+		_get_block_template_file_content( $template_file2 );
+		_get_block_template_file_content( $template_file3 );
+
+		$transientReadTime = microtime(true) - $start;
+
+		$this->assertTrue($transientReadTime < $fileReadTime, 'Loading block template from cache is slower than reading it from file');
+	}
 }
