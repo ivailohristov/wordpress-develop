@@ -541,7 +541,7 @@ function _get_block_template_file_content( $template_file_path ) {
 	// Check theme template cache first (if cached version matches the current theme version).
 	$cache_file = get_temp_dir() . md5($theme_dir) . "template_cache";
 	if ($template_data === null) {
-		$template_data = file_exists($cache_file) && filemtime($cache_file) <= time() + WEEK_IN_SECONDS ? unserialize(file_get_contents($cache_file)) : false;
+		$template_data = file_exists($cache_file) ? unserialize(file_get_contents($cache_file)) : false;
 	}
 
 	if ( is_array( $template_data ) && $template_data['version'] === $theme->get( 'Version' ) ) {
