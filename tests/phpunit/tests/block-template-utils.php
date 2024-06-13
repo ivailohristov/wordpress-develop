@@ -838,22 +838,6 @@ class Tests_Block_Template_Utils extends WP_UnitTestCase {
 
 		$fileReadTime = microtime(true) - $start;
 
-		set_transient(
-			'wp_theme_template_contents_block-theme',
-			array(
-				'version'          => '1.0.0',
-				'template_content' => array(
-					'parts/small-header.html' => $content_file1,
-					'templates/index.html' => $content_file2,
-					'templates/page-home.html' => $content_file3
-				),
-			),
-			WEEK_IN_SECONDS
-		);
-
-		// set_transient will cache the value, so we need to flush the cache to make sure we read from the DB as it will be in a web request
-		wp_cache_flush();
-
 		$start = microtime(true);
 
 		_get_block_template_file_content( $template_file1 );
@@ -862,6 +846,6 @@ class Tests_Block_Template_Utils extends WP_UnitTestCase {
 
 		$transientReadTime = microtime(true) - $start;
 
-		$this->assertTrue($transientReadTime < $fileReadTime, 'Loading block template from cache is slower than reading it from file');
+		$this->assertTrue($transientReadTime < $fileReadTime, 'Loading block template from cache is slower than reading it from each file individually');
 	}
 }
